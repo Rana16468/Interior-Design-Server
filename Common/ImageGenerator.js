@@ -1,12 +1,17 @@
 const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
 const fs = require("fs");
+require("dotenv").config();
 // coludinary -----> image uploading
 
-cloudinary.config({
-  cloud_name: "dvtehcmko",
+/*cloud_name: "dvtehcmko",
   api_key: "987935592395515",
-  api_secret: "ECwqHXhXaNiNKauisHdMts3LThc",
+  api_secret: "ECwqHXhXaNiNKauisHdMts3LThc", */
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDE_NAME,
+  api_key: process.env.API_KEY,
+  api_secret: process.env.API_SECRET,
 });
 
 const sendImageToCloudinary = async (imageName, path) => {

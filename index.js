@@ -1,13 +1,7 @@
 const express = require("express");
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-
-const { Configuration, OpenAIApi } = require("openai");
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(configuration);
-
+const Replicate = require("replicate");
 const port = 5001;
 const cors = require("cors");
 require("dotenv").config();
@@ -23,8 +17,10 @@ const {
 const { upload, sendImageToCloudinary } = require("./Common/ImageGenerator");
 
 // test database
+//mdashifuzzamanakib
+//3bRzKAo50fZS5nWE
 
-const uri = `mongodb+srv://mdashifuzzamanakib:3bRzKAo50fZS5nWE@cluster0.xdg34sp.mongodb.net/I_Design?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.DATABASE_USERNAMR}:${process.env.DATABASE_PASSWORD}@cluster0.xdg34sp.mongodb.net/I_Design?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
@@ -57,6 +53,9 @@ async function run() {
     .db("InteriorDesign")
     .collection("wishlist");
   const userCollections = client.db("InteriorDesign").collection("user");
+  const contractCollections = client
+    .db("InteriorDesign")
+    .collection("contract");
 
   try {
     app.get("/", (req, res) => {
@@ -284,16 +283,96 @@ async function run() {
 
     // image generator to using openai
 
-    app.get("/aiImage", async (req, res) => {
-      // image genaration
-
-      const generate = await openai.createImage({
-        prompt: "A dog playing the violant",
-        n: 1,
-        size: "512x512",
+    app.post("/AI_image_generate", async (req, res) => {
+      const data = req.body;
+      const replicate = new Replicate({
+        auth: process.env.REPLICATE_API_TOKEN,
       });
-      const image = generate.data.data[0].url;
-      console.log(image);
+      const output = await replicate.run(
+        "stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e4",
+        {
+          input: {
+            prompt: data?.image,
+          },
+        }
+      );
+      res.status(200).send({
+        status: true,
+        message: "Successfully  Generate The Image",
+        result: output[0],
+      });
+    });
+
+    // contract Box
+    app.post("/contract_box", async (req, res) => {
+      const data = req.body;
+      const contactBox = post_data(contractCollections, data);
+      contactBox
+        .then((result) => {
+          return res.status(201).send({
+            status: true,
+            message: "Your Complain is Recorded",
+            data: result,
+          });
+        })
+        .catch((error) => {
+          console.log(error?.message);
+        });
+    });
+
+    // recivited the All Complain
+    app.get("/recivited_all_complain", async (req, res) => {
+      const query = {};
+      const all_complain_list = get_all_data(contractCollections, query);
+      all_complain_list
+        .then((result) => {
+          return res.status(200).send({
+            status: true,
+            message: "Successfully Get All Data",
+            data: result,
+          });
+        })
+        .catch((error) => {
+          console.log(error?.message);
+        });
+    });
+    // delete ----> after solved the problems
+
+    app.delete("/delete_contruct/:id", async (req, res) => {
+      const { id } = req.params;
+      const delete_contruct = delete_data(id, contractCollections);
+      delete_contruct
+        .then((result) => {
+          return {
+            status: true,
+            message: "Successfully Deleted",
+            data: result,
+          };
+        })
+        .catch((error) => {
+          console.log(error?.message);
+        });
+    });
+
+    app.get("/image_generate", async (req, res) => {
+      /*const replicate = new Replicate({
+        auth: process.env.REPLICATE_API_TOKEN,
+      });
+      const output = await replicate.run(
+        "stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e4",
+        {
+          input: {
+            prompt: "a vision of paradise. unreal engine",
+          },
+        }
+      );
+      console.log(output);*/
+      res.status(200).send({
+        status: true,
+        message: "Successfully Create Image",
+        result:
+          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKsMWCIql9Kslgz-sSr0J-IYTurjdrwJ_xNjCP5-j_hkmFQmXVffKu2CGztR66RBq1w50&usqp=CAU",
+      });
     });
 
     //categories-details
@@ -321,6 +400,7 @@ async function run() {
     app.get("/SpecificCategoriesDetails/:id", async (req, res) => {
       const { id } = req.params;
       const query = new ObjectId(id);
+
       const specificCategoriesDetails = specific_data(
         categoriesCollections,
         query
@@ -761,15 +841,33 @@ async function run() {
       Reflect.deleteProperty(data, "password");
       Reflect.deleteProperty(data, "term");
       Reflect.deleteProperty(data, "confirmpassword");
-      const userData = { role: false, data };
-      const user_information = post_data(userCollections, userData);
-      user_information
-        .then((result) => {
-          return res.status(201).send({
-            status: true,
-            message: "Successfuly Store User Information",
-            data: result,
-          });
+
+      // already exist data in the database checking
+      const isExistUser = specific_data(userCollections, {
+        email: data?.email,
+      });
+      isExistUser
+        .then((userresult) => {
+          if (!userresult) {
+            const userData = { role: false, ...data };
+            const user_information = post_data(userCollections, userData);
+            user_information
+              .then((result) => {
+                return res.status(201).send({
+                  status: true,
+                  message: "Successfuly Store User Information",
+                  data: result,
+                });
+              })
+              .catch((error) => {
+                console.log(error?.message);
+              });
+          } else {
+            return res.status(201).send({
+              status: true,
+              message: "Information Already Exist",
+            });
+          }
         })
         .catch((error) => {
           console.log(error?.message);
