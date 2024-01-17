@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const Replicate = require("replicate");
+const OpenAI = require("openai");
 const port = 5001;
 const cors = require("cors");
 require("dotenv").config();
@@ -71,10 +72,10 @@ async function run() {
         total_amount: productData.price,
         currency: productData?.currency,
         tran_id: tran_id, // use unique tran_id for each api call
-        success_url: `http://localhost:5001/payment/success/${tran_id}`,
-        fail_url: `http://localhost:5001/payment/fail/${tran_id}`,
-        cancel_url: "http://localhost:5001/cancel",
-        ipn_url: "http://localhost:5001/ipn",
+        success_url: `https://interior-design-seven-psi.vercel.app/payment/success/${tran_id}`,
+        fail_url: `https://interior-design-seven-psi.vercel.app/payment/fail/${tran_id}`,
+        cancel_url: "https://interior-design-seven-psi.vercel.app/cancel",
+        ipn_url: "https://interior-design-seven-psi.vercel.app/ipn",
         shipping_method: "Courier",
         product_name: "Computer.",
         product_category: "Electronic",
@@ -169,7 +170,7 @@ async function run() {
 
       if (successResult.modifiedCount > 0) {
         return res.redirect(
-          `http://localhost:3000/payment/success/${req.params.tranId}`
+          `https://interiordesign-d389c.web.app/payment/success/${req.params.tranId}`
         );
       }
     });
@@ -182,7 +183,7 @@ async function run() {
       const result = await paymentCollections.deleteOne(query);
       if (result.acknowledged) {
         return res.redirect(
-          `http://localhost:3000/payment/fail/${req.params.tranId}`
+          `https://interiordesign-d389c.web.app/payment/fail/${req.params.tranId}`
         );
       }
     });
@@ -266,7 +267,7 @@ async function run() {
         });
         categoriesDetails
           .then((result) => {
-            res.status(201).send({
+            return res.status(201).send({
               status: true,
               messsage: "Successfully Create Categories Details",
               data: result,
@@ -355,6 +356,18 @@ async function run() {
     });
 
     app.get("/image_generate", async (req, res) => {
+      // opeai text generated
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      const chatCompletion = await openai.chat.completions.create({
+        messages: [{ role: "user", content: "Say this is a test" }],
+        model: "gpt-3.5-turbo",
+      });
+
+      console.log(chatCompletion);
+
       /*const replicate = new Replicate({
         auth: process.env.REPLICATE_API_TOKEN,
       });
